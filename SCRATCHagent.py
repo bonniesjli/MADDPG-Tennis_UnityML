@@ -3,18 +3,18 @@ import random
 import copy
 from collections import namedtuple, deque
 
-from model import Actor, Critic
+from SCRATCHmodel import Actor, Critic
 
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
 BUFFER_SIZE = int(1e6)  # replay buffer size
-BATCH_SIZE = 128        # minibatch size
+BATCH_SIZE = 1028        # minibatch size
 GAMMA = 0.99            # discount factor
-TAU = 1e-3              # for soft update of target parameters
+TAU = 0.2              # for soft update of target parameters
 LR_ACTOR = 1e-4         # learning rate of the actor 
-LR_CRITIC = 3e-4        # learning rate of the critic
+LR_CRITIC = 1e-3        # learning rate of the critic
 WEIGHT_DECAY = 0.0001   # L2 weight decay
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -52,7 +52,7 @@ class Agent():
         self.memory = ReplayBuffer(action_size, BUFFER_SIZE, BATCH_SIZE, random_seed)
         
            
-    def step(self, m_ob, o_ob, m_action, o_action, m_next_ob, o_next_ob, m_reward, o_reward, m_d, o_d ):
+    def step(self, learn, m_ob, o_ob, m_action, o_action, m_next_ob, o_next_ob, m_reward, o_reward, m_d, o_d ):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         # states = [m_ob, o_ob]
         # actions = [m_action, o_action]
@@ -63,7 +63,7 @@ class Agent():
         # Add to memory
         self.memory.add(m_ob, o_ob, m_action, o_action, m_next_ob, o_next_ob, m_reward, o_reward, m_d, o_d)
         
-        if len(self.memory) > BATCH_SIZE:
+        if learn is True and len(self.memory) > BATCH_SIZE:
             experiences = self.memory.sample()
             self.learn(experiences, GAMMA)
         
@@ -93,6 +93,7 @@ class Agent():
         m_actions_next = self.actor_target(m_next_obs)
         o_actions_next = self.actor_target(o_next_obs)
         Q_targets_next = self.critic_target(m_next_obs, o_next_obs, m_actions_next, o_actions_next)
+        # **Q_targets_next = self.critic_target(m_next_obs, o_next_obs, m_actions_next, o_actions)
         
         # Compute Q targets for current states (y_i)
         Q_targets = m_rewards + (gamma * Q_targets_next * (1 - m_ds))
@@ -109,6 +110,7 @@ class Agent():
         m_actions_pred = self.actor_local(m_obs)
         o_actions_pred = self.actor_local(o_obs)
         actor_loss = -self.critic_local(m_obs, o_obs, m_actions_pred, o_actions_pred).mean()
+        # **actor_loss = -self.critic_local(m_obs, o_obs, m_actions_pred, o_actions).mean()
         
         # Minimize the loss
         self.actor_optimizer.zero_grad()
